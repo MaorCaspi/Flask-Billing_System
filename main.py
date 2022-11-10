@@ -53,7 +53,10 @@ def perform_debit(dst_bank_account, amount, end_repayment_plan_date):
         if res.status_code == 200 :
             transaction_id = res.text[1:-2] # Remove the quotation marks and the new line and save it
             if not did_transaction_succeeded(transaction_id): # If the debit transaction failed
-                scheduler.add_job(perform_debit, 'date', run_date=end_repayment_plan_date, args=[dst_bank_account, amount, end_repayment_plan_date], misfire_grace_time=None)
+                try:
+                    scheduler.add_job(perform_debit, 'date', run_date=end_repayment_plan_date, args=[dst_bank_account, amount, end_repayment_plan_date], misfire_grace_time=None)
+                except:
+                    raise Exception("Failed to send job to scheduler")
         else:
             raise Exception("There was an error on the Processor server while tring perform transaction: " + res.text)
     except:
@@ -79,7 +82,10 @@ class Advance(Resource):
         end_repayment_plan_date = datetime.datetime.now() + datetime.timedelta(7*12,) # Run in the following 12 weeks
         for i in range(12):
             run_start_date = datetime.datetime.now() + datetime.timedelta(7*i,) # Run in the following 12 weeks
-            scheduler.add_job(perform_debit, 'date', run_date=run_start_date, args=[args["dst_bank_account"], args["amount"]/12, end_repayment_plan_date], misfire_grace_time=None)
+            try:
+                scheduler.add_job(perform_debit, 'date', run_date=run_start_date, args=[args["dst_bank_account"], args["amount"]/12, end_repayment_plan_date], misfire_grace_time=None)
+            except:
+                raise Exception("Failed to send job to scheduler")
 
         return("OK", 200)
 
