@@ -55,7 +55,7 @@ def perform_debit(dst_bank_account, amount, end_repayment_plan_date):
             transaction_id = res.text[1:-2] # Remove the quotation marks and the new line and save it
             if not did_transaction_succeeded(transaction_id): # If the debit transaction failed
                 try:
-                    scheduler.add_job(perform_debit, 'date', run_date=end_repayment_plan_date, args=[dst_bank_account, amount, end_repayment_plan_date], misfire_grace_time=None)
+                    scheduler.add_job(perform_debit, 'date', run_date=end_repayment_plan_date, args=[dst_bank_account, amount, end_repayment_plan_date])
                 except:
                     raise Exception("Failed to send job to scheduler")
         else:
@@ -67,7 +67,7 @@ perform_advance_args = reqparse.RequestParser() # Validate body parames for perf
 perform_advance_args.add_argument("dst_bank_account", type=str, help="dst_bank_account is required", required=True)
 perform_advance_args.add_argument("amount", type=float, help="amount is required", required=True)
 
-scheduler = BackgroundScheduler(jobstores = {'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')})
+scheduler = BackgroundScheduler(jobstores = {'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')}, job_defaults={'misfire_grace_time': None})
 scheduler.start()
 
 class Advance(Resource):
@@ -84,7 +84,7 @@ class Advance(Resource):
         for i in range(12):
             run_start_date = datetime.datetime.now() + datetime.timedelta(7*i,0) # Run in the following 12 weeks
             try:
-                scheduler.add_job(perform_debit, 'date', run_date=run_start_date, args=[args["dst_bank_account"], args["amount"]/12, end_repayment_plan_date], misfire_grace_time=None)
+                scheduler.add_job(perform_debit, 'date', run_date=run_start_date, args=[args["dst_bank_account"], args["amount"]/12, end_repayment_plan_date])
             except:
                 raise Exception("Failed to send job to scheduler")
 
