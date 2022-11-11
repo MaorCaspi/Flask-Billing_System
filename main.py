@@ -3,6 +3,7 @@ from flask import Flask
 from flask_restful import Api, Resource, reqparse
 from urllib import request
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 PROCESSOR_URL = "http://127.0.0.1:5000"
 SRC_BANK_ACCOUNT = "424158"
@@ -66,7 +67,7 @@ perform_advance_args = reqparse.RequestParser() # Validate body parames for perf
 perform_advance_args.add_argument("dst_bank_account", type=str, help="dst_bank_account is required", required=True)
 perform_advance_args.add_argument("amount", type=float, help="amount is required", required=True)
 
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(jobstores = {'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')})
 scheduler.start()
 
 class Advance(Resource):
@@ -79,9 +80,9 @@ class Advance(Resource):
         A failed debit is moved to the end of the repayment plan (a week from the last payment).
         '''
         args = perform_advance_args.parse_args()
-        end_repayment_plan_date = datetime.datetime.now() + datetime.timedelta(7*12,) # Run in the following 12 weeks
+        end_repayment_plan_date = datetime.datetime.now() + datetime.timedelta(7*12,0) # Run in the following 12 weeks
         for i in range(12):
-            run_start_date = datetime.datetime.now() + datetime.timedelta(7*i,) # Run in the following 12 weeks
+            run_start_date = datetime.datetime.now() + datetime.timedelta(7*i,0) # Run in the following 12 weeks
             try:
                 scheduler.add_job(perform_debit, 'date', run_date=run_start_date, args=[args["dst_bank_account"], args["amount"]/12, end_repayment_plan_date], misfire_grace_time=None)
             except:
