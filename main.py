@@ -4,9 +4,7 @@ from flask_restful import reqparse
 from urllib import request
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-
-PROCESSOR_URL = "http://127.0.0.1:5000"
-SRC_BANK_ACCOUNT = "424158"
+from config import Config
 
 app = Flask(__name__)
 
@@ -16,7 +14,7 @@ def did_transaction_succeeded(transaction_id):
     If the trunsaction status is success -> return True, else return False.
     """
     try:
-        with request.urlopen(PROCESSOR_URL) as f:
+        with request.urlopen(Config.PROCESSOR_URL) as f:
             report_from_processor = f.read().decode('utf-8')
             index_of_transaction_id_on_report = report_from_processor.rfind(transaction_id)
 
@@ -40,14 +38,14 @@ def perform_debit(dst_bank_account, amount, end_repayment_plan_date):
     If the trunsaction status is success -> return True, else return False.
     """
     parameters_to_processor = {
-                                "src_bank_account" : SRC_BANK_ACCOUNT,
+                                "src_bank_account" : Config.SRC_BANK_ACCOUNT,
                                 "dst_bank_account" : dst_bank_account,
                                 "amount" : amount,
                                 "direction": "debit"
                               }
                               
     try:
-        res = requests.post(PROCESSOR_URL, json = parameters_to_processor)
+        res = requests.post(Config.PROCESSOR_URL, json = parameters_to_processor)
         if res.status_code == 200 :
             transaction_id = res.text[1:-2] # Remove the quotation marks and the new line and save it
             if not did_transaction_succeeded(transaction_id): # If the debit transaction failed
@@ -60,7 +58,7 @@ def perform_debit(dst_bank_account, amount, end_repayment_plan_date):
     except:
             raise Exception("The Processor server is unavailable")
 
-scheduler = BackgroundScheduler(jobstores = {'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')}, job_defaults={'misfire_grace_time': None})
+scheduler = BackgroundScheduler(jobstores = {'default': SQLAlchemyJobStore(url=Config.DB_URL)}, job_defaults={'misfire_grace_time': None})
 scheduler.start()
 
 @app.route('/', methods=['POST'])
@@ -87,4 +85,4 @@ def perform_advance():
         return("OK", 200)
 
 if __name__ == "__main__":
-	app.run(debug = False, port = 3000)
+	app.run(debug = False, port = Config.FLASK_PORT_NUMBER)
