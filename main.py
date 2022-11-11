@@ -1,6 +1,6 @@
 import requests, datetime
 from flask import Flask
-from flask_restful import Api, Resource, reqparse
+from flask_restful import Api, reqparse
 from urllib import request
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -70,27 +70,26 @@ perform_advance_args.add_argument("amount", type=float, help="amount is required
 scheduler = BackgroundScheduler(jobstores = {'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')}, job_defaults={'misfire_grace_time': None})
 scheduler.start()
 
-class Advance(Resource):
-    def post(self):
-        '''
-        The system credits the customer with the amount.
+@app.route('/', methods=['POST'])
+def perform_advance():
+    '''
+    The system credits the customer with the amount.
 
-        In the following 12 weeks, the system performs debits of amount/12 once a week.
+    In the following 12 weeks, the system performs debits of amount/12 once a week.
 
-        A failed debit is moved to the end of the repayment plan (a week from the last payment).
-        '''
-        args = perform_advance_args.parse_args()
-        end_repayment_plan_date = datetime.datetime.now() + datetime.timedelta(7*12,0) # Run in the following 12 weeks
-        for i in range(12):
-            run_start_date = datetime.datetime.now() + datetime.timedelta(7*i,0) # Run in the following 12 weeks
-            try:
-                scheduler.add_job(perform_debit, 'date', run_date=run_start_date, args=[args["dst_bank_account"], args["amount"]/12, end_repayment_plan_date])
-            except:
-                raise Exception("Failed to send job to scheduler")
+    A failed debit is moved to the end of the repayment plan (a week from the last payment).
+    '''
+
+    args = perform_advance_args.parse_args()
+    end_repayment_plan_date = datetime.datetime.now() + datetime.timedelta(7*12,0) # Run in the following 12 weeks
+    for i in range(12):
+        run_start_date = datetime.datetime.now() + datetime.timedelta(7*i,0) # Run in the following 12 weeks
+        try:
+            scheduler.add_job(perform_debit, 'date', run_date=run_start_date, args=[args["dst_bank_account"], args["amount"]/12, end_repayment_plan_date])
+        except:
+            raise Exception("Failed to send job to scheduler")
 
         return("OK", 200)
-
-api.add_resource(Advance, "/")
 
 if __name__ == "__main__":
 	app.run(debug = False, port = 3000)
